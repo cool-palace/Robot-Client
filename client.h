@@ -22,6 +22,7 @@ private:
     void connect();
     void listen_for_commands();
     void send_command(const std::string& command);
+    bool validate_turn_command(const std::string& command);
 };
 
 #endif //CLIENT_CLIENT_H

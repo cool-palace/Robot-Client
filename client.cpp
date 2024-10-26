@@ -25,6 +25,11 @@ void Client::listen_for_commands() {
             break;
         } else if (command == "pos") {
             send_command(command);
+        } else if (command.substr(0,4) == "turn") {
+            if (!validate_turn_command(command)) {
+                continue;
+            }
+            send_command(command);
         } else {
             std::cout << "Unknown command. Try again.\n";
         }
@@ -41,4 +46,28 @@ void Client::send_command(const std::string& command) {
     std::string response;
     std::getline(response_stream, response);
     std::cout << "Server reply: \nCoordinates: " << response << "\n";
+}
+
+bool Client::validate_turn_command(const std::string& command) {
+    std::istringstream iss(command);
+    std::string turn_cmd, joint_arg, angle_arg;
+    iss >> turn_cmd >> joint_arg >> angle_arg;
+
+    if (turn_cmd != "turn" || joint_arg.substr(0, 8) != "--joint=" || angle_arg.substr(0, 8) != "--angle=") {
+        std::cerr << "Invalid command format. Use: turn --joint=<number> --angle=<degrees>\n";
+        return false;
+    }
+
+    int joint_number = std::stoi(joint_arg.substr(8));
+    double angle = std::stod(angle_arg.substr(8));
+
+    if (joint_number < 1 || joint_number > 6) {
+        std::cerr << "Joint number must be between 1 and 6.\n";
+        return false;
+    }
+    if (angle < -180 || angle > 180) {
+        std::cerr << "Angle must be between -180 and 180 degrees.\n";
+        return false;
+    }
+    return true;
 }
