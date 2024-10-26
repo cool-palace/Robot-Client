@@ -38,28 +38,37 @@ void Client::listen_for_commands() {
 
 void Client::send_command(const std::string& command) {
     boost::asio::write(socket_, boost::asio::buffer(command + "\n"));
+    while (true) {
+        boost::asio::streambuf response_buffer;
+        boost::asio::read_until(socket_, response_buffer, "\n");
 
-    boost::asio::streambuf response_buffer;
-    boost::asio::read_until(socket_, response_buffer, "\n");
-
-    std::istream response_stream(&response_buffer);
-    std::string response;
-    std::getline(response_stream, response);
-    std::cout << "Server reply: \nCoordinates: " << response << "\n";
+        std::istream response_stream(&response_buffer);
+        std::string response;
+        std::getline(response_stream, response);
+        if (response.find("Turning") != std::string::npos) {
+            std::cout << "Server reply: " << response << "\n";
+        } else if (response.find("please wait") != std::string::npos) {
+            std::cout << response << "\n";
+        } else if (response.find("coordinates") != std::string::npos || response.find("x:") != std::string::npos) {
+            std::cout << "Server reply: " << response << "\n";
+            break;
+        }
+    }
 }
 
 bool Client::validate_turn_command(const std::string& command) {
     std::istringstream iss(command);
-    std::string turn_cmd, joint_arg, angle_arg;
-    iss >> turn_cmd >> joint_arg >> angle_arg;
+    std::string turn_cmd, joint_arg, angle_arg, speed_arg;
+    iss >> turn_cmd >> joint_arg >> angle_arg >> speed_arg;
 
     if (turn_cmd != "turn" || joint_arg.substr(0, 8) != "--joint=" || angle_arg.substr(0, 8) != "--angle=") {
-        std::cerr << "Invalid command format. Use: turn --joint=<number> --angle=<degrees>\n";
+        std::cerr << "Invalid command format. Use: turn --joint=<number> --angle=<degrees> [--speed=<degrees/s>]\n";
         return false;
     }
 
     int joint_number = std::stoi(joint_arg.substr(8));
     double angle = std::stod(angle_arg.substr(8));
+    double speed = speed_arg.empty() ? 180 : std::stod(speed_arg.substr(8));
 
     if (joint_number < 1 || joint_number > 6) {
         std::cerr << "Joint number must be between 1 and 6.\n";
@@ -67,6 +76,10 @@ bool Client::validate_turn_command(const std::string& command) {
     }
     if (angle < -180 || angle > 180) {
         std::cerr << "Angle must be between -180 and 180 degrees.\n";
+        return false;
+    }
+    if (speed <= 0 || speed > 180) {
+        std::cerr << "Rotation speed must be between 0 and 180 degrees per second.\n";
         return false;
     }
     return true;
